@@ -11,6 +11,8 @@
 #include "../lvgl/examples/lv_examples.h"
 #include "../lvgl/demos/lv_demos.h"
 
+#include "esp_timer.h"
+
 uint16_t X;
 uint16_t Y;
 uint16_t Width;
@@ -21,6 +23,13 @@ uint16_t cmd_size = 0;
 
 void eve_display_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *color_p);
 static void eve_touch_read(lv_indev_t *drv, lv_indev_data_t *data);
+
+static uint32_t millis(void)
+{
+    int64_t micros = esp_timer_get_time();
+    int64_t millis = micros / 1000;
+    return millis;
+}
 
 /* Serial debugging */
 void my_print(lv_log_level_t level, const char *buf)
@@ -50,6 +59,7 @@ void setup()
 #endif
     lv_tick_set_cb((lv_tick_get_cb_t)millis);
  
+    EVE_init_spi();
     TFT_init(); /*Init EVE display*/
 
     EVE_start_cmd_burst();
@@ -90,7 +100,7 @@ void setup()
     /*********************************************************************************************************************/
     // lv_example_scroll_1();
     // lv_example_scroll_2();
-    // lv_example_scroll_3();
+    lv_example_scroll_3();
     // lv_example_scroll_4();
     // lv_example_scroll_5();
     // lv_example_scroll_6();
@@ -101,15 +111,15 @@ void setup()
     // lv_animimag();
     // lv_example_style_8();
     // lv_example_scroll_6();
-    lv_example_menu_5(); /***/
+    // lv_example_menu_5(); /***/
                          // lv_example_anim_timeline_1();
                          // lv_example_label_3();
                          // lv_example_spinner_1();
                          // lv_example_canvas_3();
                          // lv_example_get_started_4();
-                         // lv_demo_widgets();
-                         // lv_demo_benchmark();
-                         // lv_demo_music();
+                        //  lv_demo_widgets();
+                        //  lv_demo_benchmark();
+                        //  lv_demo_music();
     while (1)
     {
         lv_timer_handler();

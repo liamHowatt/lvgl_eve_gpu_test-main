@@ -31,7 +31,6 @@
 
 #include "EVE.h"
 //#include "tft_data.h"
-#include "tft.h"
 
 
 #define TEST_UTF8 0
