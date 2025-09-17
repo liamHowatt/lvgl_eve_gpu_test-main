@@ -1,8 +1,5 @@
 [submodule "lvgl"]
 	path = components/lvgl
 	url = https://github.com/juanjqh/lvgl.git
-[submodule "FT800-FT813"]
-	path = FT800-FT813
-	url = https://github.com/liamHowatt/FT800-FT813.git
 [submodule "components/lvgl"]
-	url = https://github.com/lvgl-private/lvgl-private.git
+	url = https://github.com/liamHowatt/lvgl.git

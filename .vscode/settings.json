@@ -1,0 +1,33 @@
+{
+    "files.associations": {
+        "Kconfig": "plain text",
+        "defconfig": "plain text",
+        "lv_draw_eve.h": "c",
+        "string_view": "c",
+        "lv_color.h": "c",
+        "lv_draw_rect.h": "c",
+        "lv_draw_triangle.h": "c",
+        "math.h": "c",
+        "lv_draw_eve_private.h": "c",
+        "lv_draw_private.h": "c",
+        "lv_eve.h": "c",
+        "eve_ram_g.h": "c",
+        "eve_commands.h": "c",
+        "lv_draw_label_private.h": "c",
+        "lv_conf_internal.h": "c",
+        "tft_eve_init.h": "c",
+        "eve.h": "c",
+        "lv_examples.h": "c",
+        "array": "c",
+        "string": "c",
+        "eve_target.h": "c",
+        "lv_draw_eve_target.h": "c",
+        "regex": "c",
+        "lv_tick.h": "c",
+        "lv_draw_eve_target_parameters.h": "c",
+        "lvgl.h": "c",
+        "lv_draw_eve_ram_g.h": "c",
+        "lv_draw_image_private.h": "c",
+        "lv_string.h": "c"
+    }
+}

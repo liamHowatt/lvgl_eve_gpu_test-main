@@ -1,0 +1,312 @@
+#if ARUDINO
+#include <Arduino.h>
+#include "SPI.h"
+#endif
+#include "src/draw/eve/lv_eve.h"
+#include "lvgl.h"
+#include "../lvgl/examples/lv_examples.h"
+#include "../lvgl/demos/lv_demos.h"
+
+#include "esp_timer.h"
+
+uint16_t X;
+uint16_t Y;
+uint16_t Width;
+uint16_t Height;
+
+uint16_t list_size = 0;
+uint16_t cmd_size = 0;
+
+static void eve_touch_read(lv_indev_t *drv, lv_indev_data_t *data);
+static void init_spi(void);
+static void op_cb(lv_display_t * disp, lv_draw_eve_operation_t operation, void * data, uint32_t length);
+
+static uint32_t millis(void)
+{
+    int64_t micros = esp_timer_get_time();
+    int64_t millis = micros / 1000;
+    return millis;
+}
+
+/* Serial debugging */
+void my_print(lv_log_level_t level, const char *buf)
+{
+    LV_UNUSED(level);
+#if ARUDINO
+    Serial.println(buf);
+    Serial.flush();
+#endif
+}
+
+static void tcb(lv_timer_t * tim)
+{
+    lv_obj_t * obj = lv_timer_get_user_data(tim);
+    static lv_opa_t opa;
+    lv_obj_set_style_bg_opa(obj, opa, 0);
+    opa = ~opa;
+    lv_obj_set_style_border_opa(obj, opa, 0);
+}
+
+void setup()
+{
+#if ARUDINO /*SPI init*/
+    pinMode(EVE_CS, OUTPUT);
+    digitalWrite(EVE_CS, HIGH);
+    pinMode(EVE_PDN, OUTPUT);
+    digitalWrite(EVE_PDN, LOW);
+    Serial.begin(115200); /* prepare for possible serial debug */
+    SPI.begin();          /* sets up the SPI to run in Mode 0 and 1 MHz */
+    SPI.beginTransaction(SPISettings(24000000, MSBFIRST, SPI_MODE0));
+#endif
+
+    lv_init(); /* LVGL Init */
+#if LV_USE_LOG != 0
+    // lv_log_register_print_cb(my_print); /* register print function for debugging */
+#endif
+    lv_tick_set_cb((lv_tick_get_cb_t)millis);
+ 
+    init_spi();
+
+#if (!LV_USE_DRAW_EVE)
+    EVE_start_cmd_burst();
+    EVE_cmd_dl_burst(CMD_DLSTART); /* start the display list */
+    EVE_cmd_dl_burst(DL_CLEAR_COLOR_RGB | 0x000000);
+    EVE_cmd_dl_burst(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);
+    EVE_cmd_dl_burst(VERTEX_FORMAT(0));
+    // EVE_cmd_dl_burst(VERTEX_TRANSLATE_X(8));
+    // EVE_cmd_dl_burst(VERTEX_TRANSLATE_Y(8));
+
+    EVE_cmd_setbitmap_burst(0, EVE_RGB565, EVE_HSIZE, EVE_VSIZE);
+    EVE_cmd_dl_burst(DL_BEGIN | EVE_BITMAPS);
+    EVE_cmd_dl_burst(VERTEX2F(0, 0));
+    EVE_cmd_dl(DL_END);
+    EVE_cmd_dl_burst(DL_DISPLAY); /* instruct the co-processor to show the list */
+    EVE_cmd_dl_burst(CMD_SWAP);   /* make this list active */
+
+#endif
+#if (!LV_USE_DRAW_EVE)
+    // static uint8_t buf1[EVE_HSIZE * 40];
+    lv_display_t *disp_;
+    disp_ = lv_display_create(EVE_HSIZE, EVE_VSIZE);
+    lv_display_set_flush_cb(disp_, eve_display_flush);
+    lv_display_set_buffers(disp_, buf1, NULL, EVE_HSIZE * 40, LV_DISP_RENDER_MODE_PARTIAL);
+#else
+    lv_draw_eve_parameters_t params = {
+        .hor_res = 480,
+        .ver_res = 480,
+        .vsync0 = 0,
+        .vsync1 = 4,
+        .voffset = 8,
+        .vcycle = 496,
+        .hsync0 = 0,
+        .hsync1 = 4,
+        .hoffset = 8,
+        .hcycle = 816,
+        .pclk = 3,
+        .pclkpol = 1,
+        .swizzle = 0,
+        .cspread = 0,
+        .has_crystal = true,
+        .has_gt911 = false,
+        .backlight_freq = 4000,
+        .backlight_pwm = 128,
+    };
+
+    lv_draw_eve_display_create(&params, op_cb, NULL);
+#endif
+
+    /*Register a touchpad input device*/
+    lv_indev_t *indev_touchpad;
+    indev_touchpad = lv_indev_create();
+    lv_indev_set_type(indev_touchpad, LV_INDEV_TYPE_POINTER);
+    lv_indev_set_read_cb(indev_touchpad, eve_touch_read);
+
+    /*********************************************************************************************************************/
+    // lv_example_scroll_1();
+    // lv_example_scroll_2();
+    // lv_example_scroll_3();
+    // lv_example_scroll_4();
+    // lv_example_scroll_5();
+    // lv_example_scroll_6();
+    // lv_example_style_3();
+    // lv_example_style_6();
+    // lv_example_textarea_2();
+    // lv_example_label_3();
+    // lv_example_anim_2();
+    // lv_example_style_8();
+    // lv_example_scroll_6();
+    // lv_example_menu_5(); /***/
+                         // lv_example_anim_timeline_1();
+                         // lv_example_label_3();
+                         // lv_example_spinner_1();
+                         // lv_example_canvas_3();
+                         // lv_example_get_started_4();
+                         lv_demo_widgets();
+                         lv_demo_widgets_start_slideshow();
+
+                        // lv_obj_t * obj;
+
+                        // obj = lv_obj_create(lv_screen_active());
+                        // lv_obj_center(obj);
+                        // lv_obj_set_style_border_color(obj, lv_color_hex(0xeb34e5), 0);
+                        // lv_obj_set_style_bg_color(obj, lv_color_white(), 0);
+                        // lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), 0);
+                        // lv_obj_set_size(obj, 50, 50);
+                        // lv_timer_create(tcb, 1000, obj);
+
+                        // obj = lv_label_create(lv_screen_active());
+                        // // lv_obj_center(obj);
+                        // lv_label_set_text_static(obj, "Test12345");
+                        // lv_obj_align(obj, LV_ALIGN_BOTTOM_RIGHT, 10, 8);
+
+                        //  lv_demo_benchmark();
+                        //  lv_demo_music();
+
+
+    // LV_FONT_DECLARE(test_font_montserrat_ascii_1bpp);
+    // LV_FONT_DECLARE(test_font_montserrat_ascii_2bpp);
+    // LV_FONT_DECLARE(test_font_montserrat_ascii_8bpp);
+
+    // lv_obj_t * label;
+
+    // label = lv_label_create(lv_screen_active());
+    // lv_label_set_text_static(label, "Hello World");
+    // lv_obj_align(label, LV_ALIGN_CENTER, 0, -150);
+
+    // label = lv_label_create(lv_screen_active());
+    // lv_label_set_text_static(label, "Hello World");
+    // lv_obj_align(label, LV_ALIGN_CENTER, 0, -50);
+    // lv_obj_set_style_text_font(label, &test_font_montserrat_ascii_1bpp, 0);
+
+    // label = lv_label_create(lv_screen_active());
+    // lv_label_set_text_static(label, "Hello World");
+    // lv_obj_align(label, LV_ALIGN_CENTER, 0, 50);
+    // lv_obj_set_style_text_font(label, &test_font_montserrat_ascii_2bpp, 0);
+
+    // label = lv_label_create(lv_screen_active());
+    // lv_label_set_text_static(label, "Hello World");
+    // lv_obj_align(label, LV_ALIGN_CENTER, 0, 150);
+    // lv_obj_set_style_text_font(label, &test_font_montserrat_ascii_8bpp, 0);
+
+    while (1)
+    {
+        lv_timer_handler();
+    }
+}
+
+void loop()
+{
+    // lv_timer_handler();
+}
+
+static void eve_touch_read(lv_indev_t *drv, lv_indev_data_t *data)
+{
+    static int16_t last_x = 0;
+    static int16_t last_y = 0;
+    bool touched = true;
+    EVE_end_cmd_burst();
+    uint32_t XY = EVE_memRead32(REG_TOUCH_SCREEN_XY);
+
+    uint16_t Y = XY & 0xffff;
+    uint16_t X = XY >> 16;
+
+    // is it not touched (or invalid because of calibration range)
+    if (X == 0x8000 || Y == 0x8000 || X > 800 || Y > 480)
+    {
+        touched = false;
+        X = last_x;
+        Y = last_y;
+    }
+    else
+    {
+        last_x = X;
+        last_y = Y;
+    }
+
+    data->point.x = X;
+    data->point.y = Y;
+    data->state = (touched == false ? LV_INDEV_STATE_REL : LV_INDEV_STATE_PR);
+    EVE_start_cmd_burst();
+}
+
+#include "driver/spi_master.h"
+#include "driver/gpio.h"
+
+#define EVE_CS   GPIO_NUM_5
+#define EVE_PDN  GPIO_NUM_4
+#define EVE_SCK  GPIO_NUM_12
+#define EVE_MISO GPIO_NUM_13
+#define EVE_MOSI GPIO_NUM_11
+
+static spi_device_handle_t spi_device = {0};
+
+static void init_spi(void)
+{
+    spi_bus_config_t buscfg = {0};
+    spi_device_interface_config_t devcfg = {0};
+    gpio_config_t io_cfg = {0};
+
+#if ESP_IDF_VERSION_MAJOR <= 4
+    io_cfg.intr_type = GPIO_PIN_INTR_DISABLE;
+#elif ESP_IDF_VERSION_MAJOR == 5
+    io_cfg.intr_type = GPIO_INTR_DISABLE;
+#endif
+    io_cfg.mode = GPIO_MODE_OUTPUT;
+    io_cfg.pin_bit_mask = BIT64(EVE_PDN) | BIT64(EVE_CS);
+    gpio_config(&io_cfg);
+
+    gpio_set_level(EVE_CS, 1);
+    gpio_set_level(EVE_PDN, 0);
+
+    buscfg.mosi_io_num = EVE_MOSI;
+    buscfg.miso_io_num = EVE_MISO;
+    buscfg.sclk_io_num = EVE_SCK;
+    buscfg.quadwp_io_num = -1;
+    buscfg.quadhd_io_num = -1;
+    buscfg.max_transfer_sz= 4088;
+
+    devcfg.clock_speed_hz = 22U * 1000U * 1000U; /* clock = 10 MHz */
+    devcfg.mode = 0;                          /* SPI mode 0 */
+    devcfg.spics_io_num = -1;                 /* CS pin operated by app */
+    devcfg.queue_size = 3;                    /* we need only one transaction in the que */
+    devcfg.command_bits = 0;                  /* command operated by app */
+    devcfg.address_bits = 0;
+    devcfg.post_cb = 0;
+
+    spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
+    spi_bus_add_device(SPI2_HOST, &devcfg, &spi_device);
+}
+
+static void op_cb(lv_display_t * disp, lv_draw_eve_operation_t operation, void * data, uint32_t length)
+{
+    switch(operation) {
+        case LV_DRAW_EVE_OPERATION_POWERDOWN_SET:
+            gpio_set_level(EVE_PDN, 0);
+            break;
+        case LV_DRAW_EVE_OPERATION_POWERDOWN_CLEAR:
+            gpio_set_level(EVE_PDN, 1);
+            break;
+        case LV_DRAW_EVE_OPERATION_CS_ASSERT:
+            spi_device_acquire_bus(spi_device, portMAX_DELAY);
+            gpio_set_level(EVE_CS, 0U);
+            break;
+        case LV_DRAW_EVE_OPERATION_CS_DEASSERT:
+            gpio_set_level(EVE_CS, 1U);
+            spi_device_release_bus(spi_device);
+            break;
+        case LV_DRAW_EVE_OPERATION_SPI_SEND: {
+                spi_transaction_t trans = {0};
+                trans.length = 8U * length;
+                trans.tx_buffer = data;
+                spi_device_polling_transmit(spi_device, &trans);
+            }
+            break;
+        case LV_DRAW_EVE_OPERATION_SPI_RECEIVE: {
+                spi_transaction_t trans = {0};
+                trans.length = trans.rxlength = 8U * length;
+                trans.rx_buffer = data;
+                spi_device_polling_transmit(spi_device, &trans);
+            }
+            break;
+    }
+}
